@@ -1,50 +1,58 @@
 -- Q1
 
-CREATE TABLE public.users_distinct (
-    id uuid NOT NULL,
-    created_at timestamp without time zone NOT NULL DEFAULT now(),
+create table public.users_distinct (
+    id uuid not null,
+    created_at timestamp without time zone not null default now(),
     updated_at timestamp without time zone,
     created_by uuid,
     last_modified_by uuid,
-    CONSTRAINT pk_user PRIMARY KEY (id)
+    constraint pk_user_distinct primary key (id)
 );
 
-INSERT INTO public.users_distinct
+insert into public.users_distinct
 (id, created_at, updated_at, created_by, last_modified_by)
-SELECT user_id, created_at, updated_at, created_by, last_modified_by
-FROM public.user_datastore_value
-WHERE value in ('24-31-315: 5 Years', '24-31-315: 6 Months')
+select distinct on (user_id) user_id, created_at, 
+    case updated_at when 'null' then null else to_timestamp(updated_at, 'yyyy-mm-dd hh24:mi:ss') end as updated_at,
+    created_by, 
+    case last_modified_by when 'null' then null else uuid(last_modified_by) end as last_modified_by
+from public.user_datastore_value
+where value in ('24-31-315: 5 Years', '24-31-315: 6 Months')
 ;
 
 -- Q2
-with cte as (
+/*
+Notes:
+user_organization_unit table is a linkage table that link between user table and organization_unit table. 
+user_id should be the foreign key to the id in user table and organizational_unit_id should be the foreign key to the id in organizational_unit table. 
+*/
+with ou_cp as (
     select distinct on (uou.user_id)
         uou.user_id,
-        ou.display_name
+        ou.name as organizational_unit_name
     from user_organizational_unit uou 
     join organizational_unit ou on ou.id = uou.organizational_unit_id
     join tenant t on t.id = ou.tenant_id
     where t.name = 'Colorado Post'
 )
-select display_name, count(*) as cnt
-from cte
-group by display_name
+select organizational_unit_name, count(*) as cnt
+from ou_cp
+group by organizational_unit_name
 order by cnt desc;
 
 -- Q3
 with ou_cp as (
     select distinct on (uou.user_id)
         uou.user_id,
-        ou.display_name
+        ou.name as organizational_unit_name
     from user_organizational_unit uou 
     join organizational_unit ou on ou.id = uou.organizational_unit_id
     join tenant t on t.id = ou.tenant_id
     where t.name = 'Colorado Post'
 ),
 ou_count as (
-    select display_name, count(*) as cnt
+    select organizational_unit_name, count(*) as cnt
     from ou_cp
-    group by display_name
+    group by organizational_unit_name
     order by cnt desc
 )
 select *
@@ -56,16 +64,16 @@ where cnt between 100 and 135
 WITH ou_cp AS (
     SELECT DISTINCT ON (uou.user_id)
         uou.user_id,
-        ou.display_name
+        ou.name as organization_unit_name
     FROM user_organizational_unit uou 
     JOIN organizational_unit ou ON ou.id = uou.organizational_unit_id
     JOIN tenant t ON t.id = ou.tenant_id
     WHERE t.name = 'Colorado Post'
 ),
 ou_count AS (
-    SELECT display_name, COUNT(*) AS cnt
+    SELECT organization_unit_name, COUNT(*) AS cnt
     FROM ou_cp
-    GROUP BY display_name
+    GROUP BY organization_unit_name
 ),
 max_count AS (
     SELECT MAX(cnt) AS max_cnt
@@ -84,16 +92,16 @@ CROSS JOIN
 WITH ou_cp AS (
     SELECT DISTINCT ON (uou.user_id)
         uou.user_id,
-        ou.display_name
+        ou.name as organizational_unit_name
     FROM user_organizational_unit uou 
     JOIN organizational_unit ou ON ou.id = uou.organizational_unit_id
     JOIN tenant t ON t.id = ou.tenant_id
     WHERE t.name = 'Colorado Post'
 ),
 ou_count AS (
-    SELECT display_name, COUNT(*) AS cnt
+    SELECT organizational_unit_name, COUNT(*) AS cnt
     FROM ou_cp
-    GROUP BY display_name
+    GROUP BY organizational_unit_name
 ),
 max_count AS (
     SELECT MAX(cnt) AS max_cnt
